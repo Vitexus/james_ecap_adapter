@@ -12,7 +12,13 @@
 #include <libecap/adapter/service.h>
 #include <libecap/adapter/xaction.h>
 #include <libecap/host/xaction.h>
-#include <string.h>
+#include <libecap/common/names.h>
+#include <mysql++/mysql++.h>
+#include <iomanip>
+#include <libconfig.h++>
+
+using namespace std;
+using namespace libconfig;
 
 namespace Adapter { // not required, but adds clarity
 

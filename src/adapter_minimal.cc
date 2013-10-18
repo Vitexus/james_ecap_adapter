@@ -1,15 +1,26 @@
 #include "sample.h"
 #include <iostream>
+#include <fstream>
 #include <libecap/common/registry.h>
 #include <libecap/common/errors.h>
+#include <libecap/common/message.h>
+#include <libecap/common/header.h>
+#include <libecap/common/names.h>
+#include <libecap/common/named_values.h>
+#include <libecap/common/config.h>
+#include <libecap/host/host.h>
 #include <libecap/adapter/service.h>
 #include <libecap/adapter/xaction.h>
 #include <libecap/host/xaction.h>
 #include <libecap/common/names.h>
 #include <mysql++/mysql++.h>
 #include <iomanip>
+#include <libconfig.h++>
+
 
 namespace Adapter { // not required, but adds clarity
+
+    using libecap::size_type;
 
     class Service : public libecap::adapter::Service {
     public:
@@ -21,6 +32,8 @@ namespace Adapter { // not required, but adds clarity
         // Configuration
         virtual void configure(const libecap::Options &cfg);
         virtual void reconfigure(const libecap::Options &cfg);
+        virtual void setOne(const libecap::Name &name, const libecap::Area &valArea);
+        virtual void loadConfig(std::string conffile);
 
         // Lifecycle
         virtual void start(); // expect makeXaction() calls
@@ -36,10 +49,27 @@ namespace Adapter { // not required, but adds clarity
     public:
         // Configuration storage
         std::string clientIP; //client IP
-
+        mysqlpp::Connection conn;
+        std::string dbhost;
+        std::string dbname;
+        std::string dblogin;
+        std::string dbpassw;
     };
 
-    // TODO: libecap should provide an adapter::HeaderOnlyXact convenience class
+    // Calls Service::setOne() for each host-provided configuration option.
+    // See Service::configure().
+
+    class Cfgtor : public libecap::NamedValueVisitor {
+    public:
+
+        Cfgtor(Service &aSvc) : svc(aSvc) {
+        }
+
+        virtual void visit(const libecap::Name &name, const libecap::Area &value) {
+            svc.setOne(name, value);
+        }
+        Service &svc;
+    };
 
     // a minimal adapter transaction
 
@@ -113,6 +143,9 @@ namespace Adapter { // not required, but adds clarity
         OperationState receivingVb;
         OperationState sendingAb;
     };
+    static const std::string CfgErrorPrefix =
+            "Minimal Adapter: configuration error: ";
+
 
 } // namespace Adapter
 
@@ -128,44 +161,82 @@ void Adapter::Service::describe(std::ostream &os) const {
     os << "A minimal adapter from " << PACKAGE_NAME << " v" << PACKAGE_VERSION;
 }
 
-void Adapter::Service::configure(const libecap::Options &) {
+void Adapter::Service::configure(const libecap::Options &cfg) {
+    Cfgtor cfgtor(*this);
+    cfg.visitEachOption(cfgtor);
 
+    // check for post-configuration errors and inconsistencies
+
+    if (conn.connect(dbname.c_str(), dbhost.c_str(), dblogin.c_str(), dbpassw.c_str())) {
+        //All Ok
+    } else {
+        std::cerr << "DB connection failed: " << conn.error() << std::endl;
+
+    }
+
+
+    if (!conn.connected()) {
+        throw libecap::TextException(CfgErrorPrefix + "database not connected");
+    }
 }
 
 void Adapter::Service::reconfigure(const libecap::Options &) {
     // this service is not configurable
 }
 
-void Adapter::Service::start() {
-    libecap::adapter::Service::start();
-    
-    
-    // Connect to the sample database.
-    mysqlpp::Connection conn(false);
-    if (conn.connect("dashboard", "localhost", "root", "pishkot")) {
-        // Retrieve a subset of the sample stock table set up by resetdb
-        // and display it.
-        mysqlpp::Query query = conn.query("select item from stock");
-        if (mysqlpp::StoreQueryResult res = query.store()) {
-            std::cout << "We have:" << std::endl;
-            mysqlpp::StoreQueryResult::const_iterator it;
-            for (it = res.begin(); it != res.end(); ++it) {
-                mysqlpp::Row row = *it;
-                std::cout << '\t' << row[0] << std::endl;
+using namespace std;
+using namespace libconfig;
+
+void Adapter::Service::loadConfig(string conffile) {
+
+    char _buff[1024], tag[24], val[100];
+    ifstream cfg(conffile.c_str());
+
+    while (!cfg.eof()) {
+        cfg.getline(_buff, 1024);
+        if (_buff[0] != '#' && _buff[0] != '\n') {
+            //puts(_buff);
+            sscanf(_buff, "%s = \"%s", tag, val);
+            val[strlen(val) - 2] = 0;
+
+            if (!strcmp(tag, "dbhost")) {
+                if (dbhost.empty())
+                    dbhost.assign(val);
+            }
+            if (!strcmp(tag, "dbname")) {
+                if (dbname.empty())
+                    dbname.assign(val);
+            }
+            if (!strcmp(tag, "dblogin")) {
+                if (dblogin.empty())
+                    dblogin.assign(val);
+            }
+            if (!strcmp(tag, "dbpassw")) {
+                if (dbpassw.empty())
+                    dbpassw.assign(val);
             }
         }
-        else {
-            std::cerr << "Failed to get item list: " << query.error() << std::endl;
+    }
+    cfg.close();
+}
 
-        }
+void Adapter::Service::setOne(const libecap::Name &name, const libecap::Area &valArea) {
+    const std::string value = valArea.toString();
 
+    if (name == "config") {
+        loadConfig(value);
+    } else {
+        if (name.assignedHostId())
+            ; // skip host-standard options we do not know or care about
+        else
+            throw libecap::TextException(CfgErrorPrefix +
+                "unsupported configuration parameter: " + name.image());
 
     }
-    else {
-        std::cerr << "DB connection failed: " << conn.error() << std::endl;
+}
 
-    }    
-    
+void Adapter::Service::start() {
+    libecap::adapter::Service::start();
 }
 
 void Adapter::Service::stop() {
@@ -217,8 +288,13 @@ void Adapter::Xaction::start() {
     hostx = 0;
 
     libecap::Area area = x->option(libecap::metaClientIp);
-    //service.clientIP = area.start;
+    std::string update_query = "UPDATE clients SET `time`=NOW() WHERE ip=\"";
+    update_query.append(area.start);
+    update_query.append("\"");
     
+//    mysqlpp::Query query = conn.query(update_query.c_str());
+//    query.execute();
+
 
     // tell the host to use the virgin message
     x->useVirgin();

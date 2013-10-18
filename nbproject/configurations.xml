@@ -14,6 +14,7 @@
                    kind="IMPORTANT_FILES_FOLDER">
       <itemPath>Makefile</itemPath>
       <itemPath>configure</itemPath>
+      <itemPath>/etc/james.conf</itemPath>
       <itemPath>../James/www/james.js</itemPath>
       <itemPath>/usr/local/squid/etc/squid.conf</itemPath>
     </logicalFolder>
