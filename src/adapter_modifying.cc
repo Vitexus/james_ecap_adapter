@@ -145,7 +145,7 @@ void Adapter::Service::configure(const libecap::Options &cfg) {
     // check for post-configuration errors and inconsistencies
 
     if (script.empty()) {
-        throw libecap::TextException(CfgErrorPrefix + "script value is not set");
+        throw libecap::TextException(Adapter::CfgErrorPrefix + "script value is not set");
     }
 }
 
@@ -165,7 +165,7 @@ void Adapter::Service::setOne(const libecap::Name &name, const libecap::Area &va
         if (name.assignedHostId())
             ; // skip host-standard options we do not know or care about
         else
-            throw libecap::TextException(CfgErrorPrefix +
+            throw libecap::TextException(Adapter::CfgErrorPrefix +
                 "unsupported configuration parameter: " + name.image());
 
     }
@@ -173,7 +173,7 @@ void Adapter::Service::setOne(const libecap::Name &name, const libecap::Area &va
 
 void Adapter::Service::setVictim(const std::string &value) {
     if (value.empty()) {
-        throw libecap::TextException(CfgErrorPrefix +
+        throw libecap::TextException(Adapter::CfgErrorPrefix +
                 "empty script value is not allowed");
     }
 
@@ -198,7 +198,7 @@ void Adapter::Service::setVictim(const std::string &value) {
             is.close();
         } else {
             is.close();
-            throw libecap::TextException(CfgErrorPrefix +
+            throw libecap::TextException(Adapter::CfgErrorPrefix +
                     "Can't read js fragment file: " + value);
         }
     }

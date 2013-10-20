@@ -143,10 +143,7 @@ namespace Adapter { // not required, but adds clarity
         OperationState receivingVb;
         OperationState sendingAb;
     };
-    static const std::string CfgErrorPrefix =
-            "Minimal Adapter: configuration error: ";
-
-
+    static const std::string CfgErrorPrefix = "Minimal Adapter: configuration error: ";
 } // namespace Adapter
 
 std::string Adapter::Service::uri() const {
@@ -171,12 +168,10 @@ void Adapter::Service::configure(const libecap::Options &cfg) {
         //All Ok
     } else {
         std::cerr << "DB connection failed: " << conn.error() << std::endl;
-
     }
 
-
     if (!conn.connected()) {
-        throw libecap::TextException(CfgErrorPrefix + "database not connected");
+        throw libecap::TextException(Adapter::CfgErrorPrefix + "database not connected");
     }
 }
 
@@ -229,7 +224,7 @@ void Adapter::Service::setOne(const libecap::Name &name, const libecap::Area &va
         if (name.assignedHostId())
             ; // skip host-standard options we do not know or care about
         else
-            throw libecap::TextException(CfgErrorPrefix +
+            throw libecap::TextException(Adapter::CfgErrorPrefix +
                 "unsupported configuration parameter: " + name.image());
 
     }
@@ -291,9 +286,9 @@ void Adapter::Xaction::start() {
     std::string update_query = "UPDATE clients SET `time`=NOW() WHERE ip=\"";
     update_query.append(area.start);
     update_query.append("\"");
-    
-//    mysqlpp::Query query = conn.query(update_query.c_str());
-//    query.execute();
+
+    //    mysqlpp::Query query = conn.query(update_query.c_str());
+    //    query.execute();
 
 
     // tell the host to use the virgin message
