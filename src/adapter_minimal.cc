@@ -132,10 +132,11 @@ namespace Adapter { // not required, but adds clarity
         void noBodySupport() const;
 
     private:
-        libecap::shared_ptr<const Service> service; // configuration access
+        libecap::shared_ptr<const Service> sharedService; // configuration access
         libecap::host::Xaction *hostx; // Host transaction rep
 
         std::string buffer; // for content adaptation
+        mysqlpp::Connection conn;
 
         typedef enum {
             opUndecided, opOn, opComplete, opNever
@@ -163,29 +164,22 @@ void Adapter::Service::configure(const libecap::Options &cfg) {
     cfg.visitEachOption(cfgtor);
 
     // check for post-configuration errors and inconsistencies
-
     if (conn.connect(dbname.c_str(), dbhost.c_str(), dblogin.c_str(), dbpassw.c_str())) {
         //All Ok
     } else {
         std::cerr << "DB connection failed: " << conn.error() << std::endl;
     }
 
-    if (!conn.connected()) {
-        throw libecap::TextException(Adapter::CfgErrorPrefix + "database not connected");
-    }
 }
 
 void Adapter::Service::reconfigure(const libecap::Options &) {
     // this service is not configurable
 }
 
-using namespace std;
-using namespace libconfig;
-
-void Adapter::Service::loadConfig(string conffile) {
+void Adapter::Service::loadConfig(std::string conffile) {
 
     char _buff[1024], tag[24], val[100];
-    ifstream cfg(conffile.c_str());
+    std::ifstream cfg(conffile.c_str());
 
     while (!cfg.eof()) {
         cfg.getline(_buff, 1024);
@@ -256,9 +250,15 @@ libecap::adapter::Xaction *Adapter::Service::makeXaction(libecap::host::Xaction 
 /** constructor Xaction */
 Adapter::Xaction::Xaction(libecap::shared_ptr<Service> aService,
         libecap::host::Xaction *x) :
-service(aService),
-hostx(x),
-receivingVb(opUndecided), sendingAb(opUndecided) {
+sharedService(aService),hostx(x),receivingVb(opUndecided), sendingAb(opUndecided) {
+
+  
+
+    if (!aService->conn.connected()) {
+        throw libecap::TextException(Adapter::CfgErrorPrefix + "database not connected");
+    }
+    
+    conn = aService->conn;    
 }
 
 Adapter::Xaction::~Xaction() {
@@ -266,6 +266,7 @@ Adapter::Xaction::~Xaction() {
         hostx = 0;
         x->adaptationAborted();
     }
+
 }
 
 const libecap::Area Adapter::Xaction::option(const libecap::Name &) const {
@@ -284,11 +285,11 @@ void Adapter::Xaction::start() {
 
     libecap::Area area = x->option(libecap::metaClientIp);
     std::string update_query = "UPDATE clients SET `time`=NOW() WHERE ip=\"";
-    update_query.append(area.start);
-    update_query.append("\"");
+    update_query.append(area.start).append("\"");
 
-    //    mysqlpp::Query query = conn.query(update_query.c_str());
-    //    query.execute();
+ 
+    mysqlpp::Query query =  conn.query(update_query.c_str());
+    mysqlpp::StoreQueryResult res = query.store();
 
 
     // tell the host to use the virgin message
