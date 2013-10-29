@@ -1,4 +1,4 @@
-#include "sample.h"
+#include "james_ecap.h"
 #include <iostream>
 #include <fstream>
 #include <libecap/common/registry.h>
@@ -17,8 +17,6 @@
 #include <iomanip>
 #include <libconfig.h++>
 
-using namespace std;
-using namespace libconfig;
 
 namespace Adapter { // not required, but adds clarity
 
@@ -56,7 +54,6 @@ namespace Adapter { // not required, but adds clarity
     protected:
         void setVictim(const std::string &value);
     };
-
 
     // Calls Service::setOne() for each host-provided configuration option.
     // See Service::configure().
@@ -109,7 +106,7 @@ namespace Adapter { // not required, but adds clarity
         libecap::host::Xaction *lastHostCall(); // clears hostx
 
     private:
-        libecap::shared_ptr<const Service> service; // configuration access
+        libecap::shared_ptr<const Service> sharedService; // configuration access
         libecap::host::Xaction *hostx; // Host transaction rep
 
         std::string buffer; // for content adaptation
@@ -167,7 +164,6 @@ void Adapter::Service::setOne(const libecap::Name &name, const libecap::Area &va
         else
             throw libecap::TextException(Adapter::CfgErrorPrefix +
                 "unsupported configuration parameter: " + name.image());
-
     }
 }
 
@@ -227,16 +223,13 @@ bool Adapter::Service::wantsUrl(const char *url) const {
 }
 
 libecap::adapter::Xaction *Adapter::Service::makeXaction(libecap::host::Xaction *hostx) {
-    return new Adapter::Xaction(std::tr1::static_pointer_cast<Service>(self),
-            hostx);
+    return new Adapter::Xaction(std::tr1::static_pointer_cast<Service>(self), hostx);
 }
 
 /** constructor Xaction */
 Adapter::Xaction::Xaction(libecap::shared_ptr<Service> aService,
         libecap::host::Xaction *x) :
-service(aService),
-hostx(x),
-receivingVb(opUndecided), sendingAb(opUndecided) {
+sharedService(aService), hostx(x), receivingVb(opUndecided), sendingAb(opUndecided) {
 }
 
 Adapter::Xaction::~Xaction() {
@@ -244,6 +237,7 @@ Adapter::Xaction::~Xaction() {
         hostx = 0;
         x->adaptationAborted();
     }
+
 }
 
 const libecap::Area Adapter::Xaction::option(const libecap::Name &) const {
@@ -264,7 +258,20 @@ void Adapter::Xaction::start() {
         // we are not interested in vb if there is not one
         receivingVb = opNever;
     }
-    std::cout << "start\n";
+
+
+
+    libecap::Area uri;
+    typedef const libecap::RequestLine *CLRLP;
+    if (CLRLP requestLine = dynamic_cast<CLRLP> (&hostx->virgin().firstLine()))
+        uri = requestLine->uri();
+    else
+        if (CLRLP requestLine = dynamic_cast<CLRLP> (&hostx->cause().firstLine()))
+        uri = requestLine->uri();
+
+
+    std::cout << "Modifing start: " << uri << std::endl;
+
 
     /* adapt message header */
 
@@ -281,6 +288,8 @@ void Adapter::Xaction::start() {
             libecap::Area::FromTempString(libecap::MyHost().uri());
     adapted->header().add(name, value);
 
+    if (adapted->header().hasAny(libecap::Name("Accept-Encoding"))) //Nekomprimovat!
+        adapted->header().removeAny(libecap::Name("Accept-Encoding"));
 
     // Add Warning header to response, according to RFC 2616 14.46
     static const libecap::Name warningName("Warning");
@@ -369,7 +378,7 @@ void Adapter::Xaction::adaptContent(std::string &chunk) const {
     const std::string victim1 = "</body>";
     const std::string victim2 = "</BODY>";
     const std::string victim3 = "</Body>";
-    const std::string &replacement = service->replacement;
+    const std::string &replacement = sharedService->replacement;
 
     std::cout << "Chunk\n";
     //    std::cout << chunk;
@@ -437,5 +446,3 @@ libecap::host::Xaction * Adapter::Xaction::lastHostCall() {
 
 // create the adapter and register with libecap to reach the host application
 static const bool Registered = (libecap::RegisterService(new Adapter::Service), true);
-
-

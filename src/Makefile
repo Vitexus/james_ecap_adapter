@@ -96,6 +96,14 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
+ecap_adapter_captivating_la_LIBADD =
+am_ecap_adapter_captivating_la_OBJECTS = adapter_captivating.lo
+ecap_adapter_captivating_la_OBJECTS =  \
+	$(am_ecap_adapter_captivating_la_OBJECTS)
+ecap_adapter_captivating_la_LINK = $(LIBTOOL) --tag=CXX \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CXXLD) \
+	$(AM_CXXFLAGS) $(CXXFLAGS) \
+	$(ecap_adapter_captivating_la_LDFLAGS) $(LDFLAGS) -o $@
 ecap_adapter_minimal_la_LIBADD =
 am_ecap_adapter_minimal_la_OBJECTS = adapter_minimal.lo
 ecap_adapter_minimal_la_OBJECTS =  \
@@ -133,10 +141,12 @@ CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(ecap_adapter_minimal_la_SOURCES) \
+SOURCES = $(ecap_adapter_captivating_la_SOURCES) \
+	$(ecap_adapter_minimal_la_SOURCES) \
 	$(ecap_adapter_modifying_la_SOURCES) \
 	$(ecap_adapter_passthru_la_SOURCES)
-DIST_SOURCES = $(ecap_adapter_minimal_la_SOURCES) \
+DIST_SOURCES = $(ecap_adapter_captivating_la_SOURCES) \
+	$(ecap_adapter_minimal_la_SOURCES) \
 	$(ecap_adapter_modifying_la_SOURCES) \
 	$(ecap_adapter_passthru_la_SOURCES)
 am__can_run_installinfo = \
@@ -254,7 +264,7 @@ infodir = ${datarootdir}/info
 install_sh = ${SHELL} /home/vitex/Projects/FatDUX/james_ecap_adapter-0.0.1/cfgaux/install-sh
 libdir = ${exec_prefix}/lib
 libecap_CFLAGS = -I/usr/local/include  
-libecap_LIBS = -L/usr/local/lib -lecap  -lmysqlpp -lmysqlclient
+libecap_LIBS = -L/usr/local/lib -lecap  
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
@@ -277,22 +287,24 @@ top_srcdir = ..
 EXTRA_DIST = \
 	adapter_minimal.cc \
 	adapter_passthru.cc \
+	adapter_captivating.cc \
 	adapter_modifying.cc
 
 lib_LTLIBRARIES = \
 	ecap_adapter_minimal.la \
 	ecap_adapter_passthru.la \
+	ecap_adapter_captivating.la \
 	ecap_adapter_modifying.la
 
 noinst_HEADERS = \
-	sample.h \
+	james_ecap.h \
 	\
 	autoconf.h 
 
 
 # minimal
 ecap_adapter_minimal_la_SOURCES = adapter_minimal.cc
-ecap_adapter_minimal_la_LDFLAGS = -module -avoid-version $(libecap_LIBS)
+ecap_adapter_minimal_la_LDFLAGS = -module -avoid-version $(libecap_LIBS) -lmysqlpp -lmysqlclient
 
 # passthru
 ecap_adapter_passthru_la_SOURCES = adapter_passthru.cc
@@ -301,6 +313,10 @@ ecap_adapter_passthru_la_LDFLAGS = -module -avoid-version $(libecap_LIBS)
 # modifying
 ecap_adapter_modifying_la_SOURCES = adapter_modifying.cc
 ecap_adapter_modifying_la_LDFLAGS = -module -avoid-version $(libecap_LIBS)
+
+# captivating
+ecap_adapter_captivating_la_SOURCES = adapter_captivating.cc
+ecap_adapter_captivating_la_LDFLAGS = -module -avoid-version $(libecap_LIBS) -lmysqlpp -lmysqlclient
 
 # -shared -export-dynamic -Wl,-soname,ecap_noop_adapter.so
 DISTCLEANFILES = \
@@ -389,6 +405,8 @@ clean-libLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
+ecap_adapter_captivating.la: $(ecap_adapter_captivating_la_OBJECTS) $(ecap_adapter_captivating_la_DEPENDENCIES) $(EXTRA_ecap_adapter_captivating_la_DEPENDENCIES) 
+	$(ecap_adapter_captivating_la_LINK) -rpath $(libdir) $(ecap_adapter_captivating_la_OBJECTS) $(ecap_adapter_captivating_la_LIBADD) $(LIBS)
 ecap_adapter_minimal.la: $(ecap_adapter_minimal_la_OBJECTS) $(ecap_adapter_minimal_la_DEPENDENCIES) $(EXTRA_ecap_adapter_minimal_la_DEPENDENCIES) 
 	$(ecap_adapter_minimal_la_LINK) -rpath $(libdir) $(ecap_adapter_minimal_la_OBJECTS) $(ecap_adapter_minimal_la_LIBADD) $(LIBS)
 ecap_adapter_modifying.la: $(ecap_adapter_modifying_la_OBJECTS) $(ecap_adapter_modifying_la_DEPENDENCIES) $(EXTRA_ecap_adapter_modifying_la_DEPENDENCIES) 
@@ -402,6 +420,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+include ./$(DEPDIR)/adapter_captivating.Plo
 include ./$(DEPDIR)/adapter_minimal.Plo
 include ./$(DEPDIR)/adapter_modifying.Plo
 include ./$(DEPDIR)/adapter_passthru.Plo

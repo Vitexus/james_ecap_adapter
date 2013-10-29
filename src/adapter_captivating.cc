@@ -129,7 +129,9 @@ namespace Adapter { // not required, but adds clarity
         OperationState receivingVb;
         OperationState sendingAb;
 
-        typedef enum { stBlocked, stAllowed } CaptiveState;
+        typedef enum {
+            stBlocked, stAllowed
+        } CaptiveState;
         CaptiveState capState;
         libecap::Area ResponsePage(void);
         void cnStart(void);
@@ -154,15 +156,18 @@ void Adapter::Service::describe(std::ostream &os) const {
 }
 
 void Adapter::Service::configure(const libecap::Options &cfg) {
+    FUNCENTER();
     Cfgtor cfgtor(*this);
     cfg.visitEachOption(cfgtor);
 }
 
 void Adapter::Service::reconfigure(const libecap::Options &) {
+    FUNCENTER();
     //loadConfig();
 }
 
 void Adapter::Service::loadConfig(std::string conffile) {
+    FUNCENTER();
 
     char _buff[1024], tag[24], val[100];
     std::ifstream cfg(conffile.c_str());
@@ -196,6 +201,7 @@ void Adapter::Service::loadConfig(std::string conffile) {
 }
 
 void Adapter::Service::setOne(const libecap::Name &name, const libecap::Area &valArea) {
+    FUNCENTER();
     const std::string value = valArea.toString();
 
     if (name.image() == "config") {
@@ -211,43 +217,49 @@ void Adapter::Service::setOne(const libecap::Name &name, const libecap::Area &va
 }
 
 void Adapter::Service::start() {
+    FUNCENTER();
     libecap::adapter::Service::start();
     // custom code would go here, but this service does not have one
 }
 
 void Adapter::Service::stop() {
+    FUNCENTER();
     // custom code would go here, but this service does not have one
     libecap::adapter::Service::stop();
 }
 
 void Adapter::Service::retire() {
+    FUNCENTER();
     // custom code would go here, but this service does not have one
     libecap::adapter::Service::stop();
 }
 
 bool Adapter::Service::wantsUrl(const char *url) const {
+    FUNCENTER();
     return true; // no-op is applied to all messages
 }
 
 libecap::adapter::Xaction *Adapter::Service::makeXaction(libecap::host::Xaction *hostx) {
+    FUNCENTER();
     return new Adapter::Xaction(std::tr1::static_pointer_cast<Service>(self), hostx);
 }
 
-void Adapter::Xaction::cnStart(void)
-{
-    
+void Adapter::Xaction::cnStart(void) {
+    FUNCENTER();
+
 }
 
 /** constructor Xaction */
 Adapter::Xaction::Xaction(libecap::shared_ptr<Service> aService,
         libecap::host::Xaction *x) :
 sharedService(aService), hostx(x), receivingVb(opUndecided), sendingAb(opUndecided) {
-    std::cout << "Xaction" << std::endl;
+    FUNCENTER();
     //    conn = &aService->conn;
     sqlConn = sharedService->conn;
 }
 
 Adapter::Xaction::~Xaction() {
+    FUNCENTER();
     if (libecap::host::Xaction * x = hostx) {
         hostx = 0;
         x->adaptationAborted();
@@ -256,10 +268,12 @@ Adapter::Xaction::~Xaction() {
 }
 
 const libecap::Area Adapter::Xaction::option(const libecap::Name &) const {
+    FUNCENTER();
     return libecap::Area(); // this transaction has no meta-information
 }
 
 void Adapter::Xaction::visitEachOption(libecap::NamedValueVisitor &) const {
+    FUNCENTER();
     // this transaction has no meta-information to pass to the visitor
 }
 
@@ -284,6 +298,7 @@ char* itoa(int i, char b[]) {
 }
 
 libecap::Area Adapter::Xaction::ResponsePage(void) {
+    FUNCENTER();
     std::string errmsg = "<HTML><HEAD><TITLE>";
     if (capState == stAllowed) {
         errmsg += "Success";
@@ -302,6 +317,7 @@ libecap::Area Adapter::Xaction::ResponsePage(void) {
 
 /* Zacatek procesu*/
 void Adapter::Xaction::start() {
+    FUNCENTER();
     Must(hostx);
     if (hostx->virgin().body()) {
         receivingVb = opOn;
@@ -310,7 +326,7 @@ void Adapter::Xaction::start() {
         // we are not interested in vb if there is not one
         receivingVb = opNever;
     }
-    std::cout << "Captivating start\n";
+
 
 
     int cn = 1;
@@ -418,11 +434,13 @@ void Adapter::Xaction::start() {
 }
 
 void Adapter::Xaction::stop() {
+    FUNCENTER();
     hostx = 0;
     // the caller will delete
 }
 
 void Adapter::Xaction::abDiscard() {
+    FUNCENTER();
     Must(sendingAb == opUndecided); // have not started yet
     sendingAb = opNever;
     // we do not need more vb if the host is not interested in ab
@@ -430,6 +448,7 @@ void Adapter::Xaction::abDiscard() {
 }
 
 void Adapter::Xaction::abMake() {
+    FUNCENTER();
     Must(sendingAb == opUndecided); // have not yet started or decided not to send
     Must(hostx->virgin().body()); // that is our only source of ab content
 
@@ -442,11 +461,13 @@ void Adapter::Xaction::abMake() {
 }
 
 void Adapter::Xaction::abMakeMore() {
+    FUNCENTER();
     Must(receivingVb == opOn); // a precondition for receiving more vb
     hostx->vbMakeMore();
 }
 
 void Adapter::Xaction::abStopMaking() {
+    FUNCENTER();
     sendingAb = opComplete;
     // we do not need more vb if the host is not interested in more ab
     stopVb();
@@ -459,23 +480,26 @@ libecap::Area Adapter::Xaction::abContent(size_type offset, size_type size) {
 }
 
 void Adapter::Xaction::abContentShift(size_type size) {
+    FUNCENTER();
     Must(sendingAb == opOn || sendingAb == opComplete);
     buffer.erase(0, size);
 }
 
 void Adapter::Xaction::noteVbContentDone(bool atEnd) {
+    FUNCENTER();
     Must(receivingVb == opOn);
     receivingVb = opComplete;
     if (sendingAb == opOn) {
         hostx->noteAbContentDone(atEnd);
         sendingAb = opComplete;
     }
-    
+
     cnStart();
-    
+
 }
 
 void Adapter::Xaction::noteVbContentAvailable() {
+    FUNCENTER();
     Must(receivingVb == opOn);
 
     const libecap::Area vb = hostx->vbContent(0, libecap::nsize); // get all vb
@@ -489,6 +513,7 @@ void Adapter::Xaction::noteVbContentAvailable() {
 }
 
 bool Adapter::Xaction::callable() const {
+    FUNCENTER();
     return hostx != 0; // no point to call us if we are done
 }
 
@@ -496,6 +521,7 @@ bool Adapter::Xaction::callable() const {
 // if the host does not know that already
 
 void Adapter::Xaction::stopVb() {
+    FUNCENTER();
     if (receivingVb == opOn) {
         hostx->vbStopMaking();
         receivingVb = opComplete;
@@ -510,6 +536,7 @@ void Adapter::Xaction::stopVb() {
 // TODO: replace with hostx-independent "done" method
 
 libecap::host::Xaction *Adapter::Xaction::lastHostCall() {
+    FUNCENTER();
     libecap::host::Xaction *x = hostx;
     Must(x);
     hostx = 0;

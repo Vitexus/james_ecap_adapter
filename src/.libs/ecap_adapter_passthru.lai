@@ -17,7 +17,7 @@ old_library='ecap_adapter_passthru.a'
 inherited_linker_flags=''
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/usr/local/lib /usr/local/lib/libecap.la -lmysqlpp -lmysqlclient'
+dependency_libs=' -L/usr/local/lib /usr/local/lib/libecap.la'
 
 # Names of additional weak libraries provided by this library
 weak_library_names=''

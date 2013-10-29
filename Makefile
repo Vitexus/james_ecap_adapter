@@ -52,9 +52,10 @@ build_triplet = x86_64-unknown-linux-gnu
 host_triplet = x86_64-unknown-linux-gnu
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(top_srcdir)/configure AUTHORS NEWS \
-	cfgaux/config.guess cfgaux/config.sub cfgaux/depcomp \
-	cfgaux/install-sh cfgaux/ltmain.sh cfgaux/missing
+	$(srcdir)/Makefile.in $(top_srcdir)/configure AUTHORS COPYING \
+	ChangeLog INSTALL NEWS cfgaux/config.guess cfgaux/config.sub \
+	cfgaux/depcomp cfgaux/install-sh cfgaux/ltmain.sh \
+	cfgaux/missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/cfgaux/ax_cxx_check_lib.m4 \
@@ -147,7 +148,7 @@ CPPFLAGS =
 CXX = g++
 CXXCPP = g++ -E
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -lmysqlpp -lmysqlclient -lconfig
+CXXFLAGS = -lmysqlpp -lmysqlclient
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps

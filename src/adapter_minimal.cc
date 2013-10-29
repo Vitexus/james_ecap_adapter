@@ -1,4 +1,4 @@
-#include "sample.h"
+#include "james_ecap.h"
 #include <iostream>
 #include <fstream>
 #include <libecap/common/registry.h>

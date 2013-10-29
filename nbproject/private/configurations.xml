@@ -6,14 +6,18 @@
       </df>
       <df name="cfgaux">
       </df>
+      <df name="debian">
+      </df>
       <df name="src">
+        <in>adapter_captivating.cc</in>
         <in>adapter_minimal.cc</in>
         <in>adapter_modifying.cc</in>
         <in>adapter_passthru.cc</in>
         <in>autoconf.h</in>
-        <in>sample.h</in>
+        <in>james_ecap.h</in>
       </df>
     </df>
+    <itemPath>nbproject/Package-Default.bash</itemPath>
   </logicalFolder>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
@@ -56,8 +60,9 @@
           <runcommandpicklistitem>/home/vitex/Compile/squid-3.3.8-20130821-r12602/src/squid -X -N</runcommandpicklistitem>
           <runcommandpicklistitem>/home/vitex/Compile/squid-3.3.8-20130821-r12602/src/squid -d devel -N</runcommandpicklistitem>
           <runcommandpicklistitem>/usr/local/squid/sbin/squid -d devel -N</runcommandpicklistitem>
+          <runcommandpicklistitem>/home/vitex/Compile/squid-3.3.9/src/squid -d devel -N</runcommandpicklistitem>
         </runcommandpicklist>
-        <runcommand>/usr/local/squid/sbin/squid -d devel -N</runcommand>
+        <runcommand>/home/vitex/Compile/squid-3.3.9/src/squid -d devel -N</runcommand>
         <rundir>.</rundir>
         <buildfirst>false</buildfirst>
         <terminal-type>0</terminal-type>

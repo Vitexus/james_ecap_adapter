@@ -592,7 +592,7 @@ PACKAGE_STRING='James eCAP Adapter 0.0.1'
 PACKAGE_BUGREPORT=''
 PACKAGE_URL=''
 
-ac_unique_file="src/sample.h"
+ac_unique_file="src/james_ecap.h"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>
@@ -16731,6 +16731,8 @@ else
 $as_echo "yes" >&6; }
 
 fi
+#PKG_CHECK_MODULES(libmysqlpp)
+#PKG_CHECK_MODULES(libmysqlclient)
 
 # Checks for typedefs, structures, and compiler characteristics.
 # AC_HEADER_STDBOOL
