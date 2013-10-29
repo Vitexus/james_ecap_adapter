@@ -19,7 +19,7 @@
 #endif
 
 #ifdef DEBUG
-  #define FUNCENTER() std::cerr << "==> " << __FUNCTION__ << std::endl
+  #define FUNCENTER() std::cerr << "James ==> " << __FUNCTION__ << std::endl
 #else
   #define FUNCENTER()
 #endif

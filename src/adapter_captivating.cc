@@ -119,12 +119,13 @@ namespace Adapter { // not required, but adds clarity
     private:
         libecap::shared_ptr<const Service> sharedService; // configuration access
         libecap::host::Xaction *hostx; // Host transaction rep
+        libecap::shared_ptr <libecap::Message> adapted;
 
         std::string buffer; // for content adaptation
         std::string clientIP; //client IP
 
         typedef enum {
-            opUndecided, opOn, opComplete, opNever
+            opUndecided, opOn, opComplete, opNever, opWaiting
         } OperationState;
         OperationState receivingVb;
         OperationState sendingAb;
@@ -135,6 +136,10 @@ namespace Adapter { // not required, but adds clarity
         CaptiveState capState;
         libecap::Area ResponsePage(void);
         void cnStart(void);
+        bool isCaptiveRequest(libecap::Area area);
+
+        void noteContentAvailable(void);
+
 
     };
 
@@ -246,6 +251,69 @@ libecap::adapter::Xaction *Adapter::Service::makeXaction(libecap::host::Xaction 
 
 void Adapter::Xaction::cnStart(void) {
     FUNCENTER();
+    int cn = 1;
+    char cntime[] = "0000-00-00 00:00:00";
+    time_t cntimestamp = 0;
+    mysqlpp::Row row;
+
+    libecap::host::Xaction *x = hostx;
+    libecap::Area area = x->option(libecap::metaClientIp);
+    clientIP.assign(area.start);
+
+    if (!sqlConn.connected()) {
+        // check for post-configuration errors and inconsistencies
+        if (sqlConn.connect(sharedService->dbname.c_str(), sharedService->dbhost.c_str(), sharedService->dblogin.c_str(), sharedService->dbpassw.c_str())) {
+            std::cout << "SQL reconnect" << std::endl;
+        } else {
+            std::cerr << "DB connection failed: " << sqlConn.error() << std::endl;
+        }
+
+    }
+
+    std::string ip_query = "SELECT cn,cntime, UNIX_TIMESTAMP(cntime) AS cntimestamp FROM `clients` WHERE `ip`='";
+    ip_query.append(clientIP).append("'");
+
+    mysqlpp::Query query = sqlConn.query(ip_query);
+    mysqlpp::StoreQueryResult res = query.store(); //Problem
+
+    if (res) {
+        mysqlpp::StoreQueryResult::const_iterator it;
+        for (it = res.begin(); it != res.end(); ++it) {
+            row = *it;
+            cn = row[0];
+            strcpy(cntime, row[1]);
+            cntimestamp = atoi(row[2]);
+        }
+
+
+    } else {
+        std::cerr << "Failed to get item list: " << query.error() << std::endl;
+
+        //        mysqli_query($link, "INSERT INTO clients SET `ip`='" . $client_ip . "',`starttime`=NOW(),`time`=NOW(),`enabled`=0,`cn`=0,`url`='" . $_SERVER['SERVER_NAME '] . $_SERVER['REQUEST_URI '] . "'");
+        std::string ins_query = "INSERT INTO clients SET `ip`='";
+        ins_query.append(clientIP).append("',`starttime`=NOW(),`time`=NOW(),`enabled`=0,`cn`=0 ");
+        mysqlpp::Query query2 = sqlConn.query(ins_query);
+        query2.exec(); //Problem
+
+    }
+
+
+    if (strlen(cntime) && strcmp(cntime, "0000-00-00 00:00:00")) {
+        if (time(NULL) - cntimestamp < CAPTIVE_TIMEOUT) {
+            cn = row[0] + 1;
+        }
+    }
+
+    char upquery[200];
+    sprintf(upquery, "UPDATE `clients` SET `cntime`=NOW(), `cn` = %d WHERE `ip`='%s'", cn, clientIP.c_str());
+    mysqlpp::Query query3 = sqlConn.query(upquery);
+    query3.exec();
+
+    if (cn % 2 == 0) {
+        capState = stAllowed;
+    } else {
+        capState = stBlocked;
+    }
 
 }
 
@@ -315,6 +383,15 @@ libecap::Area Adapter::Xaction::ResponsePage(void) {
     return libecap::Area::FromTempString(errmsg);
 }
 
+/**
+ * Rozhoduje zdali se jedna o success.html apod ...
+ */
+bool Adapter::Xaction::isCaptiveRequest(libecap::Area area) {
+    FUNCENTER();
+    //TODO
+    return true;
+}
+
 /* Zacatek procesu*/
 void Adapter::Xaction::start() {
     FUNCENTER();
@@ -329,69 +406,6 @@ void Adapter::Xaction::start() {
 
 
 
-    int cn = 1;
-    char cntime[] = "0000-00-00 00:00:00";
-    time_t cntimestamp = 0;
-    mysqlpp::Row row;
-
-    libecap::host::Xaction *x = hostx;
-    libecap::Area area = x->option(libecap::metaClientIp);
-    clientIP.assign(area.start);
-
-    if (!sqlConn.connected()) {
-        // check for post-configuration errors and inconsistencies
-        if (sqlConn.connect(sharedService->dbname.c_str(), sharedService->dbhost.c_str(), sharedService->dblogin.c_str(), sharedService->dbpassw.c_str())) {
-            std::cout << "SQL reconnect" << std::endl;
-        } else {
-            std::cerr << "DB connection failed: " << sqlConn.error() << std::endl;
-        }
-
-    }
-
-    std::string ip_query = "SELECT cn,cntime, UNIX_TIMESTAMP(cntime) AS cntimestamp FROM `clients` WHERE `ip`='";
-    ip_query.append(clientIP).append("'");
-
-    mysqlpp::Query query = sqlConn.query(ip_query);
-    mysqlpp::StoreQueryResult res = query.store(); //Problem
-
-    if (res) {
-        mysqlpp::StoreQueryResult::const_iterator it;
-        for (it = res.begin(); it != res.end(); ++it) {
-            row = *it;
-            cn = row[0];
-            strcpy(cntime, row[1]);
-            cntimestamp = atoi(row[2]);
-        }
-
-
-    } else {
-        std::cerr << "Failed to get item list: " << query.error() << std::endl;
-
-        //        mysqli_query($link, "INSERT INTO clients SET `ip`='" . $client_ip . "',`starttime`=NOW(),`time`=NOW(),`enabled`=0,`cn`=0,`url`='" . $_SERVER['SERVER_NAME '] . $_SERVER['REQUEST_URI '] . "'");
-        std::string ins_query = "INSERT INTO clients SET `ip`='";
-        ins_query.append(clientIP).append("',`starttime`=NOW(),`time`=NOW(),`enabled`=0,`cn`=0 ");
-        mysqlpp::Query query2 = sqlConn.query(ins_query);
-        query2.exec(); //Problem
-
-    }
-
-
-    if (strlen(cntime) && strcmp(cntime, "0000-00-00 00:00:00")) {
-        if (time(NULL) - cntimestamp < CAPTIVE_TIMEOUT) {
-            cn = row[0] + 1;
-        }
-    }
-
-    char upquery[200];
-    sprintf(upquery, "UPDATE `clients` SET `cntime`=NOW(), `cn` = %d WHERE `ip`='%s'", cn, clientIP.c_str());
-    mysqlpp::Query query3 = sqlConn.query(upquery);
-    query3.exec();
-
-    if (cn % 2 == 0) {
-        capState = stAllowed;
-    } else {
-        capState = stBlocked;
-    }
 
     /* adapt message header */
 
@@ -485,6 +499,40 @@ void Adapter::Xaction::abContentShift(size_type size) {
     buffer.erase(0, size);
 }
 
+void Adapter::Xaction::noteContentAvailable() {
+    FUNCENTER();
+
+    if (sendingAb == opWaiting) {
+        adapted = hostx->virgin().clone();
+        Must(adapted != 0);
+
+        libecap::FirstLine *firstLine = &(adapted->firstLine());
+        libecap::StatusLine *statusLine = dynamic_cast<libecap::StatusLine*> (firstLine);
+
+        // do not remove the Content-Length header in 'reqmod'
+        if (statusLine)
+            adapted->header().removeAny(libecap::headerContentLength);
+
+
+        const libecap::Name name("Content-Type");
+        const libecap::Name disp("Content-Disposition");
+        const libecap::Header::Value value = libecap::Area::FromTempString("text/html");
+        adapted->header().removeAny(disp);
+        adapted->header().removeAny(name);
+        adapted->header().add(name, value);
+
+
+        const libecap::Name xname("X-Ecap");
+        const libecap::Header::Value xvalue = libecap::Area::FromTempString("JameseCapCaptivate");
+        adapted->header().add(xname, xvalue);
+
+        hostx->useAdapted(adapted);
+    }
+    hostx->noteAbContentAvailable();
+}
+
+// finished reading the virgin body
+
 void Adapter::Xaction::noteVbContentDone(bool atEnd) {
     FUNCENTER();
     Must(receivingVb == opOn);
@@ -495,21 +543,35 @@ void Adapter::Xaction::noteVbContentDone(bool atEnd) {
     }
 
     cnStart();
-
+    noteContentAvailable();
 }
 
 void Adapter::Xaction::noteVbContentAvailable() {
     FUNCENTER();
     Must(receivingVb == opOn);
+    Must(capState);
 
-    const libecap::Area vb = hostx->vbContent(0, libecap::nsize); // get all vb
-    std::string chunk = vb.toString(); // expensive, but simple
-    hostx->vbContentShift(vb.size); // we have a copy; do not need vb any more
+    // get all virgin body
+    const libecap::Area vb = hostx->vbContent(0, libecap::nsize);
 
-    //    buffer += chunk; // buffer what we got
+    if (sendingAb == opUndecided) {
 
-    if (sendingAb == opOn)
-        hostx->noteAbContentAvailable();
+        if (isCaptiveRequest(vb)) {
+            sendingAb = opWaiting;
+        } else {
+            // nothing to do, just send the vb
+            hostx->useVirgin();
+            abDiscard();
+            return;
+        }
+    }
+
+    // we have a copy; do not need vb any more
+    hostx->vbContentShift(vb.size);
+
+
+    if (sendingAb == opOn || sendingAb == opWaiting)
+        noteContentAvailable();
 }
 
 bool Adapter::Xaction::callable() const {
